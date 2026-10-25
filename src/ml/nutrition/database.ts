@@ -167,6 +167,16 @@ export const FOOD_DATABASE: FoodNutrition[] = [
     category: 'fruits',
   },
   {
+    id: 'broccoli',
+    translations: {
+      de: 'Brokkoli',
+      uk: 'Брокколі',
+    },
+    caloriesPer100g: 34,
+    defaultServingGrams: 150,
+    category: 'vegetables',
+  },
+  {
     id: 'steak',
     translations: {
       de: 'Rindersteak',

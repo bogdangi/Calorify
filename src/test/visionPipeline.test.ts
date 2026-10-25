@@ -4,6 +4,7 @@ import { MockFoodClassifier } from '../ml/classifiers/mockClassifier';
 import { MockFoodDetector } from '../ml/detectors/mockDetector';
 import { MockPortionEstimator } from '../ml/portion/mockPortionEstimator';
 import { LocalNutritionProvider } from '../ml/nutrition/provider';
+import type { FoodClassifier } from '../types/ml';
 import type { FoodNutrition } from '../types/nutrition';
 
 describe('Modular Vision Pipeline (Mock ML Testing)', () => {
@@ -87,5 +88,26 @@ describe('Modular Vision Pipeline (Mock ML Testing)', () => {
 
     expect(analysis.topAlternatives).toBeDefined();
     expect(Array.isArray(analysis.topAlternatives)).toBe(true);
+  });
+
+  it('passes the predicting head source through to the analysis', async () => {
+    const classifier: FoodClassifier = {
+      classify: async () => [
+        { foodId: 'pizza', confidence: 0.9, source: 'food101' },
+        { foodId: 'banana', confidence: 0.4, source: 'imagenet' },
+      ],
+    };
+    const nutritionProvider = new LocalNutritionProvider(customDatabase);
+
+    const pipeline = new ModularVisionPipeline({
+      classifier,
+      nutritionProvider,
+      language: 'de',
+    });
+
+    const analysis = await pipeline.analyze(new Blob(['fake_bytes'], { type: 'image/jpeg' }));
+
+    expect(analysis.source).toBe('food101');
+    expect(analysis.topAlternatives?.[0]?.source).toBe('imagenet');
   });
 });
