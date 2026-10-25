@@ -73,6 +73,12 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
   const handleSaveToDiary = async () => {
     if (!analysis) return;
 
+    // oxlint-disable-next-line react/purity -- called in async event handler, not during render
+    const analyzedAt = analysis.inferenceTimeMs
+      // eslint-disable-next-line react/purity
+      ? new Date(Date.now() - analysis.inferenceTimeMs).toISOString()
+      : new Date().toISOString(); // oxlint-disable-line react/purity
+
     await onConfirmMeal({
       name: confirmedFoodName || analysis.foodName,
       calories: confirmedCalories || analysis.calories,
@@ -90,7 +96,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         modelId: analysis.modelId,
         modelVersion: analysis.modelVersion,
         isMock: analysis.isMock,
-        analyzedAt: new Date().toISOString(),
+        analyzedAt,
       },
     });
 

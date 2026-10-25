@@ -10,27 +10,36 @@ export class SettingsRepository {
     this.table = database.settings;
   }
 
+  private buildInitialSettings(): UserSettings {
+    // Determine initial language from navigator if available
+    let browserLang: 'de' | 'uk' = 'de';
+    if (typeof navigator !== 'undefined' && navigator.language) {
+      if (navigator.language.startsWith('uk')) {
+        browserLang = 'uk';
+      }
+    }
+
+    return {
+      ...DEFAULT_SETTINGS,
+      language: browserLang,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  // Read-only: safe to call from liveQuery. Does not persist.
   async getSettings(): Promise<UserSettings> {
     const existing = await this.table.get('current_settings');
-    if (!existing) {
-      // Determine initial language from navigator if available
-      let browserLang: 'de' | 'uk' = 'de';
-      if (typeof navigator !== 'undefined' && navigator.language) {
-        if (navigator.language.startsWith('uk')) {
-          browserLang = 'uk';
-        }
-      }
+    return existing ?? this.buildInitialSettings();
+  }
 
-      const initialSettings: UserSettings = {
-        ...DEFAULT_SETTINGS,
-        language: browserLang,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await this.table.put(initialSettings);
-      return initialSettings;
-    }
-    return existing;
+  // Seeds the row on first run. Call once at app startup, outside liveQuery.
+  async ensureSettings(): Promise<UserSettings> {
+    const existing = await this.table.get('current_settings');
+    if (existing) return existing;
+    const initial = this.buildInitialSettings();
+    await this.table.put(initial);
+    return initial;
   }
 
   async saveSettings(updates: Partial<UserSettings>): Promise<UserSettings> {
