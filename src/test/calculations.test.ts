@@ -6,6 +6,7 @@ import {
   calculateMonthlyCalories,
   calculateWeightStats,
   filterWeightsByRange,
+  calculateCalorieRecommendation,
 } from '../utils/calculations';
 import type { MealEntry } from '../types/meal';
 import type { WeightEntry } from '../types/weight';
@@ -190,5 +191,89 @@ describe('Calculations: calculateWeightStats', () => {
 
     const all = filterWeightsByRange(weights, 'all', ref);
     expect(all.length).toBe(3);
+  });
+});
+
+describe('Calculations: calculateCalorieRecommendation (US-1)', () => {
+  it('computes BMR (Mifflin-St Jeor), TDEE and target for men', () => {
+    // Male, 30y, 180cm, 80kg, moderately active (PAL 1.55)
+    // BMR = 10*80 + 6.25*180 - 5*30 + 5 = 1780
+    const rec = calculateCalorieRecommendation({
+      sex: 'male',
+      age: 30,
+      heightCm: 180,
+      weightKg: 80,
+      activityLevel: 'moderate',
+    });
+    expect(rec).not.toBeNull();
+    expect(rec!.bmr).toBe(1780);
+    expect(rec!.tdee).toBe(2759);
+    expect(rec!.target).toBe(2259); // 2759 - 500 deficit
+    expect(rec!.floored).toBe(false);
+  });
+
+  it('applies the female BMR offset (-161)', () => {
+    // Female, 30y, 170cm, 65kg, light activity (PAL 1.375)
+    // BMR = 650 + 1062.5 - 150 - 161 = 1401.5
+    const rec = calculateCalorieRecommendation({
+      sex: 'female',
+      age: 30,
+      heightCm: 170,
+      weightKg: 65,
+      activityLevel: 'light',
+    });
+    expect(rec).not.toBeNull();
+    expect(rec!.bmr).toBe(1402);
+    expect(rec!.tdee).toBe(1927);
+    expect(rec!.target).toBe(1427);
+    expect(rec!.floored).toBe(false);
+  });
+
+  it('caps women at the 1200 kcal safety floor and flags it', () => {
+    // Female, 70y, 150cm, 45kg, sedentary: raw target ~552 kcal
+    const rec = calculateCalorieRecommendation({
+      sex: 'female',
+      age: 70,
+      heightCm: 150,
+      weightKg: 45,
+      activityLevel: 'sedentary',
+    });
+    expect(rec).not.toBeNull();
+    expect(rec!.target).toBe(1200);
+    expect(rec!.floored).toBe(true);
+  });
+
+  it('caps men at the 1500 kcal safety floor and flags it', () => {
+    // Male, 75y, 150cm, 50kg, sedentary: raw target ~781 kcal
+    const rec = calculateCalorieRecommendation({
+      sex: 'male',
+      age: 75,
+      heightCm: 150,
+      weightKg: 50,
+      activityLevel: 'sedentary',
+    });
+    expect(rec).not.toBeNull();
+    expect(rec!.target).toBe(1500);
+    expect(rec!.floored).toBe(true);
+  });
+
+  it('returns null for incomplete or invalid profiles', () => {
+    const base = { age: 30, heightCm: 180, weightKg: 80, activityLevel: 'moderate' } as const;
+    expect(calculateCalorieRecommendation({ sex: null, ...base })).toBeNull();
+    expect(
+      calculateCalorieRecommendation({ sex: 'male', age: null, heightCm: 180, weightKg: 80, activityLevel: 'moderate' })
+    ).toBeNull();
+    expect(
+      calculateCalorieRecommendation({ sex: 'male', age: 30, heightCm: 180, weightKg: null, activityLevel: 'moderate' })
+    ).toBeNull();
+    expect(
+      calculateCalorieRecommendation({ sex: 'male', age: 30, heightCm: 180, weightKg: 80, activityLevel: null })
+    ).toBeNull();
+    expect(
+      calculateCalorieRecommendation({ sex: 'male', age: 30, heightCm: 180, weightKg: 0, activityLevel: 'moderate' })
+    ).toBeNull();
+    expect(
+      calculateCalorieRecommendation({ sex: 'male', age: -5, heightCm: 180, weightKg: 80, activityLevel: 'moderate' })
+    ).toBeNull();
   });
 });

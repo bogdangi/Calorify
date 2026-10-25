@@ -1,5 +1,74 @@
 import type { MealEntry } from '../types/meal';
 import type { WeightEntry, WeightStats } from '../types/weight';
+import type { ActivityLevel, BiologicalSex } from '../types/settings';
+
+// --- Calorie calculator (US-1) ---
+
+/** Standard Physical Activity Level (PAL) multipliers. */
+const PAL_FACTORS: Record<ActivityLevel, number> = {
+  sedentary: 1.2,
+  light: 1.375,
+  moderate: 1.55,
+  very: 1.725,
+  extreme: 1.9,
+};
+
+/** Stress-free daily deficit (kcal) below TDEE. */
+const DEFICIT_KCAL = 500;
+
+/** Health safety floors — never recommend below these (kcal/day). */
+export const MIN_DAILY_KCAL: Record<BiologicalSex, number> = {
+  male: 1500,
+  female: 1200,
+};
+
+export interface CalorieProfile {
+  sex: BiologicalSex | null;
+  age: number | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  activityLevel: ActivityLevel | null;
+}
+
+export interface CalorieRecommendation {
+  /** Basal Metabolic Rate (Mifflin-St Jeor), kcal/day. */
+  bmr: number;
+  /** Total Daily Energy Expenditure = BMR x PAL, kcal/day. */
+  tdee: number;
+  /** Final daily target after deficit and safety floor, kcal/day. */
+  target: number;
+  /** True when the health safety floor raised the target. */
+  floored: boolean;
+}
+
+const isPositiveNumber = (v: unknown): v is number =>
+  typeof v === 'number' && isFinite(v) && v > 0;
+
+/**
+ * Science-based daily calorie target (US-1):
+ * Mifflin-St Jeor BMR x PAL = TDEE, minus a 500 kcal deficit,
+ * never below 1200 kcal (women) / 1500 kcal (men).
+ * Returns null while the profile is incomplete or invalid.
+ */
+export function calculateCalorieRecommendation(p: CalorieProfile): CalorieRecommendation | null {
+  if (!p.sex || !p.activityLevel) return null;
+  if (!isPositiveNumber(p.age) || !isPositiveNumber(p.heightCm) || !isPositiveNumber(p.weightKg)) {
+    return null;
+  }
+
+  const bmr =
+    10 * p.weightKg + 6.25 * p.heightCm - 5 * p.age + (p.sex === 'male' ? 5 : -161);
+  const tdee = bmr * PAL_FACTORS[p.activityLevel];
+  const rawTarget = tdee - DEFICIT_KCAL;
+  const floor = MIN_DAILY_KCAL[p.sex];
+
+  return {
+    bmr: Math.round(bmr),
+    tdee: Math.round(tdee),
+    target: Math.round(Math.max(rawTarget, floor)),
+    floored: rawTarget < floor,
+  };
+}
 
 /**
  * Calculates calories for a specific portion in grams based on kcal/100g.

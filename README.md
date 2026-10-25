@@ -1,3 +1,11 @@
+# Calorify
+
+Local-first calorie tracking PWA with on-device ML food estimation (de/uk).
+
+📚 **Project context**: user stories, architecture decision records (ADRs), and reference docs live in [`.context/README.md`](.context/README.md).
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
