@@ -22,6 +22,9 @@ export class OnnxFoodClassifier implements FoodClassifier {
     try {
       // Lazy-load ONNX Runtime Web on demand
       this.ort = await import('onnxruntime-web');
+      // single-threaded wasm: ORT's worker chunk imports the app entry and
+      // crashes on `document` — see imageNetClassifier.ts for the full note.
+      this.ort.env.wasm.numThreads = 1;
 
       // Try WebGPU first, then WASM
       const options = {

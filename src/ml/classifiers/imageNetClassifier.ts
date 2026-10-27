@@ -32,6 +32,11 @@ export class ImageNetClassifier implements FoodClassifier {
     this.isInitializing = true;
     try {
       this.ort = await import('onnxruntime-web');
+      // ponytail: single-threaded wasm — ORT's worker chunk statically imports
+      // the app entry (rollup shares the CJS require helper), so every spawned
+      // pthread worker dies on `document`. Re-enable once the ort chunk is
+      // self-contained (manualChunks separating the shared helper).
+      this.ort.env.wasm.numThreads = 1;
       const options = {
         executionProviders: ['webgpu', 'wasm'],
         graphOptimizationLevel: 'all',
