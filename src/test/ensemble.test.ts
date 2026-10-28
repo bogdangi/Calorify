@@ -114,14 +114,13 @@ describe('EnsembleClassifier max-score merge', () => {
     await ensemble.classify(noImage);
 
     expect(snapshots.map((s) => s.map((step) => step.status))).toEqual([
-      ['pending', 'pending'],
       ['running', 'pending'],
       ['done', 'pending'],
       ['done', 'running'],
       ['done', 'failed'],
     ]);
-    expect(snapshots[3][0].ms).toBeGreaterThanOrEqual(0);
-    expect(snapshots[3][0].label).toBe('One');
-    expect(snapshots[4][1].status).toBe('failed');
+    expect(snapshots[2][0].ms).toBeGreaterThanOrEqual(0);
+    expect(snapshots[2][0].label).toBe('One');
+    expect(snapshots[3][1].status).toBe('failed');
   });
 });

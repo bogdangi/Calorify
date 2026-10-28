@@ -39,7 +39,6 @@ export class EnsembleClassifier implements FoodClassifier {
   async classify(image: ImageSource): Promise<FoodClassification[]> {
     const steps: HeadStep[] = this.heads.map((head) => ({ label: head.label, status: 'pending' }));
     const emit = () => this.onProgress?.(steps.map((step) => ({ ...step })));
-    emit();
 
     const results: FoodClassification[][] = [];
     for (let i = 0; i < this.heads.length; i++) {

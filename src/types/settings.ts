@@ -22,7 +22,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   id: 'current_settings',
   language: 'de',
   dailyCalorieGoal: 2000,
-  selectedModelId: 'food-classifier-mock',
+  selectedModelId: 'food-classifier-onnx',
   theme: 'dark',
   sex: null,
   age: null,

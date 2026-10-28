@@ -15,7 +15,6 @@ const SOURCE_LABELS: Record<string, string> = {
   imagenet: 'ImageNet MobileNetV2',
   'model-load-failed': 'Model failed to load',
   'model-inference-failed': 'Model inference failed',
-  heuristic: 'Color heuristic (fallback)',
 };
 
 const isRealModelSource = (source?: string) => source === 'food101' || source === 'imagenet';
@@ -44,15 +43,9 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const predictionSources = analysis
-    ? [
-        ...new Set(
-          [analysis.source, ...(analysis.topAlternatives ?? []).map((alt) => alt.source)].filter(
-            (s): s is string => Boolean(s)
-          )
-        ),
-      ]
-    : [];
+  const predictionSources = [
+    ...new Set([analysis?.source, ...(analysis?.topAlternatives ?? []).map((alt) => alt.source)]),
+  ].filter(Boolean);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

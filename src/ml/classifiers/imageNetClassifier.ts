@@ -71,23 +71,20 @@ export class ImageNetClassifier implements FoodClassifier {
       // heads on "confidence given it's a food we track".
       const maxVal = Math.max(...data);
       let mappedMass = 0;
-      const expValues = new Float32Array(data.length);
-      for (let i = 0; i < data.length; i++) {
-        expValues[i] = Math.exp(data[i] - maxVal);
-        if (IMAGENET_TO_FOOD[i]) mappedMass += expValues[i];
-      }
-      if (mappedMass < 0.01) return []; // nothing recognizable as a tracked food
-
-      const mapped: Array<{ entry: (typeof IMAGENET_TO_FOOD)[number]; prob: number }> = [];
+      const mapped: Array<{ entry: (typeof IMAGENET_TO_FOOD)[number]; exp: number }> = [];
       for (let i = 0; i < data.length; i++) {
         const entry = IMAGENET_TO_FOOD[i];
-        if (entry) mapped.push({ entry, prob: expValues[i] / mappedMass });
+        if (!entry) continue;
+        const exp = Math.exp(data[i] - maxVal);
+        mappedMass += exp;
+        mapped.push({ entry, exp });
       }
-      mapped.sort((a, b) => b.prob - a.prob);
+      if (mappedMass < 0.01) return []; // nothing recognizable as a tracked food
+      mapped.sort((a, b) => b.exp - a.exp);
 
-      return mapped.slice(0, 3).map(({ entry, prob }) => ({
+      return mapped.slice(0, 3).map(({ entry, exp }) => ({
         foodId: entry.foodId,
-        confidence: Number(prob.toFixed(2)),
+        confidence: Number((exp / mappedMass).toFixed(2)),
         rawLabel: `imagenet:${entry.label}`,
         source: 'imagenet',
       }));
@@ -99,27 +96,8 @@ export class ImageNetClassifier implements FoodClassifier {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private async preprocessImage(image: ImageSource): Promise<any> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let src: any;
-    let width: number;
-    let height: number;
-
-    if (typeof HTMLImageElement !== 'undefined' && image instanceof HTMLImageElement) {
-      src = image;
-      width = image.naturalWidth;
-      height = image.naturalHeight;
-    } else if (typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement) {
-      src = image;
-      width = image.width;
-      height = image.height;
-    } else if (image instanceof Blob) {
-      const decoded = await decodeImage(image);
-      src = decoded.source;
-      width = decoded.width;
-      height = decoded.height;
-    } else {
-      throw new Error('Unsupported image source');
-    }
+    if (!(image instanceof Blob)) throw new Error('Unsupported image source');
+    const { source: src, width, height } = await decodeImage(image);
 
     const scale = 256 / Math.min(width, height);
     const cropSide = 224 / scale;

@@ -2,21 +2,17 @@ import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Cross-origin isolation: silences the SharedArrayBuffer console warning and
+// keeps multi-threaded wasm possible (currently pinned to 1 thread in the
+// classifiers — see imageNetClassifier.ts).
+const crossOriginIsolation = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+};
+
 export default defineConfig({
-  // Cross-origin isolation: lets onnxruntime-web use SharedArrayBuffer for
-  // multi-threaded WASM (single-thread fallback still works without it).
-  server: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-    },
-  },
-  preview: {
-    headers: {
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-    },
-  },
+  server: { headers: crossOriginIsolation },
+  preview: { headers: crossOriginIsolation },
   plugins: [
     react(),
     VitePWA({
