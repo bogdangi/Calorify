@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:bdd": "vitest run src/test/features --reporter=verbose",
     "preview": "vite preview"
   },
   "dependencies": {
