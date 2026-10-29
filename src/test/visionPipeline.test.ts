@@ -88,4 +88,5 @@ describe('Modular Vision Pipeline (Mock ML Testing)', () => {
     expect(analysis.topAlternatives).toBeDefined();
     expect(Array.isArray(analysis.topAlternatives)).toBe(true);
   });
+
 });

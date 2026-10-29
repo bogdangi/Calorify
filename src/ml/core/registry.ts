@@ -12,11 +12,12 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
   },
   {
     id: 'food-classifier-onnx',
-    name: 'MobileNetV2 Vision Classifier (ONNX)',
+    name: 'Food + Produce Ensemble (ONNX)',
     version: '2.1.0',
     runtime: 'onnx',
-    sizeMB: 3.4,
-    description: 'Quantized MobileNetV2 food-mapped classifier running locally via WebGPU/WASM.',
+    sizeMB: 29.1,
+    description:
+      'Ensemble of the Food-101 dish classifier (101 classes) and an ImageNet-1k MobileNetV2 produce head (1001 classes), running locally via WebGPU/WASM.',
     isMock: false,
   },
 ];

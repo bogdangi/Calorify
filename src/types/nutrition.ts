@@ -6,7 +6,7 @@ export interface FoodNutrition {
   };
   caloriesPer100g: number;
   defaultServingGrams: number;
-  category?: 'fruits' | 'vegetables' | 'proteins' | 'grains' | 'meals' | 'dairy' | 'snacks';
+  category?: 'fruits' | 'vegetables' | 'proteins' | 'grains' | 'meals' | 'dairy' | 'snacks' | 'desserts' | 'soups' | 'seafood';
 }
 
 export interface NutritionInfo {

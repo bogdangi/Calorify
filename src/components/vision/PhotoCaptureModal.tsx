@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Camera, Image as ImageIcon, Sparkles, Check, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Camera, Image as ImageIcon, Sparkles, Check, RotateCcw, AlertTriangle, X, Loader2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { useVisionPipeline } from '../../hooks/useVisionPipeline';
 import type { FoodAnalysis } from '../../types/ml';
@@ -9,6 +9,15 @@ import { getLocalDateString, getLocalTimeString } from '../../utils/date';
 import { formatConfidence } from '../../utils/formatters';
 import { defaultNutritionProvider } from '../../ml/nutrition/provider';
 import { calculateCaloriesFromPortion } from '../../utils/calculations';
+
+const SOURCE_LABELS: Record<string, string> = {
+  food101: 'Food-101',
+  imagenet: 'ImageNet MobileNetV2',
+  'model-load-failed': 'Model failed to load',
+  'model-inference-failed': 'Model inference failed',
+};
+
+const isRealModelSource = (source?: string) => source === 'food101' || source === 'imagenet';
 
 interface PhotoCaptureModalProps {
   isOpen: boolean;
@@ -24,7 +33,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
   targetDate,
 }) => {
   const { t, i18n } = useTranslation();
-  const { status, analysis, errorMessage, analyzeImage, reset } = useVisionPipeline();
+  const { status, analysis, errorMessage, headSteps, analyzeImage, reset } = useVisionPipeline();
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [confirmedFoodName, setConfirmedFoodName] = useState('');
@@ -33,6 +42,10 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const predictionSources = [
+    ...new Set([analysis?.source, ...(analysis?.topAlternatives ?? []).map((alt) => alt.source)]),
+  ].filter(Boolean);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,6 +86,12 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
   const handleSaveToDiary = async () => {
     if (!analysis) return;
 
+    // oxlint-disable-next-line react/purity -- called in async event handler, not during render
+    const analyzedAt = analysis.inferenceTimeMs
+      // eslint-disable-next-line react/purity
+      ? new Date(Date.now() - analysis.inferenceTimeMs).toISOString()
+      : new Date().toISOString(); // oxlint-disable-line react/purity
+
     await onConfirmMeal({
       name: confirmedFoodName || analysis.foodName,
       calories: confirmedCalories || analysis.calories,
@@ -90,7 +109,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
         modelId: analysis.modelId,
         modelVersion: analysis.modelVersion,
         isMock: analysis.isMock,
-        analyzedAt: new Date().toISOString(),
+        analyzedAt,
       },
     });
 
@@ -198,6 +217,51 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>
               WebGPU / WASM On-Device
             </p>
+
+            {headSteps.length > 0 ? (
+              <div
+                style={{
+                  marginTop: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  fontSize: '0.82rem',
+                }}
+              >
+                {headSteps.map((step) => (
+                  <div
+                    key={step.label}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      color:
+                        step.status === 'failed'
+                          ? '#f87171'
+                          : step.status === 'pending'
+                            ? 'var(--text-muted)'
+                            : 'var(--text-secondary)',
+                    }}
+                  >
+                    {step.status === 'done' ? (
+                      <Check size={14} />
+                    ) : step.status === 'failed' ? (
+                      <X size={14} />
+                    ) : (
+                      <Loader2
+                        size={14}
+                        style={{ animation: 'spin 1s linear infinite' }}
+                      />
+                    )}
+                    <span style={{ fontWeight: step.status === 'running' ? 700 : 400 }}>
+                      {step.label}
+                      {step.ms !== undefined ? ` · ${step.status === 'failed' ? 'failed' : `${step.ms} ms`}` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -289,7 +353,9 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                       borderRadius: 'var(--radius-full)',
                     }}
                   >
-                    ONNX On-Device
+                    {predictionSources.length > 1
+                      ? `${predictionSources.length} Models · On-Device`
+                      : 'ONNX On-Device'}
                   </span>
                 )}
               </div>
@@ -305,6 +371,25 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                   <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ffffff' }}>
                     {confirmedFoodName}
                   </div>
+                  {analysis.source ? (
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 'fit-content',
+                        marginTop: 4,
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius-full)',
+                        background: isRealModelSource(analysis.source)
+                          ? 'rgba(255, 255, 255, 0.08)'
+                          : 'rgba(245, 158, 11, 0.15)',
+                        color: isRealModelSource(analysis.source) ? 'var(--text-secondary)' : '#fbbf24',
+                      }}
+                    >
+                      {SOURCE_LABELS[analysis.source] ?? analysis.source}
+                    </span>
+                  ) : null}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -372,6 +457,7 @@ export const PhotoCaptureModal: React.FC<PhotoCaptureModalProps> = ({
                         onClick={() => handleSelectAlternative(alt)}
                       >
                         {alt.foodName} ({formatConfidence(alt.confidence, i18n.language)})
+                        {alt.source ? ` · ${SOURCE_LABELS[alt.source] ?? alt.source}` : ''}
                       </button>
                     ))}
                   </div>

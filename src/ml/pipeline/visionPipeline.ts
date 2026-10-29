@@ -97,6 +97,7 @@ export class ModularVisionPipeline implements VisionPipeline {
           foodName: altNutrition.name,
           confidence: alt.confidence,
           calories: calculateCaloriesFromPortion(altNutrition.caloriesPer100g, portionGrams),
+          source: alt.source,
         });
       }
     }
@@ -114,6 +115,7 @@ export class ModularVisionPipeline implements VisionPipeline {
       modelId: this.modelId,
       modelVersion: this.modelVersion,
       inferenceTimeMs,
+      source: primaryPrediction.source,
       topAlternatives,
     };
   }

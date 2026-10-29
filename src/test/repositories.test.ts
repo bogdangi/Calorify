@@ -91,4 +91,11 @@ describe('IndexedDB Repositories (fake-indexeddb)', () => {
     expect(refetched.language).toBe('uk');
     expect(refetched.dailyCalorieGoal).toBe(2300);
   });
+
+  it('getSettings is read-only (safe for liveQuery)', async () => {
+    await testDb.transaction('r', testDb.settings, async () => {
+      const settings = await settingsRepo.getSettings();
+      expect(settings.id).toBe('current_settings');
+    });
+  });
 });

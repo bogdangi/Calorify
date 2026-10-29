@@ -1,26 +1,6 @@
 import type { FoodClassifier, FoodClassification, ImageSource } from '../../types/ml';
-
-// Food mapping from vision model classes to our local food database IDs
-const CLASS_INDEX_TO_FOOD_ID: Record<number, string> = {
-  0: 'apple',
-  1: 'banana',
-  2: 'pizza',
-  3: 'rice',
-  4: 'pasta',
-  5: 'chicken',
-  6: 'salad',
-  7: 'hamburger',
-  8: 'french_fries',
-  9: 'bread',
-  10: 'egg',
-  11: 'yogurt',
-  12: 'salmon',
-  13: 'oatmeal',
-  14: 'orange',
-  15: 'avocado',
-  16: 'steak',
-  17: 'chocolate',
-};
+import { FOOD101_CLASSES, FOOD101_TO_FOOD_ID } from './food101Labels';
+import { decodeImage } from '../core/imageDecode';
 
 export class OnnxFoodClassifier implements FoodClassifier {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,6 +22,9 @@ export class OnnxFoodClassifier implements FoodClassifier {
     try {
       // Lazy-load ONNX Runtime Web on demand
       this.ort = await import('onnxruntime-web');
+      // single-threaded wasm: ORT's worker chunk imports the app entry and
+      // crashes on `document` — see imageNetClassifier.ts for the full note.
+      this.ort.env.wasm.numThreads = 1;
 
       // Try WebGPU first, then WASM
       const options = {
@@ -61,8 +44,17 @@ export class OnnxFoodClassifier implements FoodClassifier {
   async classify(image: ImageSource): Promise<FoodClassification[]> {
     const initialized = await this.initialize();
     if (!initialized || !this.session || !this.ort) {
-      // Fallback heuristic based on color/histogram of the canvas
-      return this.heuristicColorClassify(image);
+      // ponytail: color-heuristic fallback for model-load failure still exits
+      // with isMock:false (registry value) — users see it as a real model.
+      // Upgrade path: set analysis.isMock=true when this branch runs;
+      // requires plugging an isMock signal through FoodClassifier.
+      // ponytail: model file is server-cached (Firebase immutable), not
+      // workbox-precached; first run needs network. Upgrade: fix
+      // includeAssets glob ('models/**') in vite.config.ts.
+      return (await this.heuristicColorClassify(image)).map((c) => ({
+        ...c,
+        source: 'model-load-failed',
+      }));
     }
 
     try {
@@ -87,16 +79,23 @@ export class OnnxFoodClassifier implements FoodClassifier {
       const indexed = probabilities.map((prob, idx) => ({ idx, prob }));
       indexed.sort((a, b) => b.prob - a.prob);
 
-      const topClasses = indexed.slice(0, 3).map((item) => ({
-        foodId: CLASS_INDEX_TO_FOOD_ID[item.idx % 18] || 'pizza',
-        confidence: Number(item.prob.toFixed(2)),
-        rawLabel: `onnx_class_${item.idx}`,
-      }));
+      const topClasses = indexed.slice(0, 3).map((item) => {
+        const label = FOOD101_CLASSES[item.idx] || 'pizza';
+        return {
+          foodId: FOOD101_TO_FOOD_ID[label] || 'pizza',
+          confidence: Number(item.prob.toFixed(2)),
+          rawLabel: `food101:${label}`,
+          source: 'food101',
+        };
+      });
 
       return topClasses;
     } catch (err) {
       console.warn('Inference error in ONNX classifier, falling back to heuristic:', err);
-      return this.heuristicColorClassify(image);
+      return (await this.heuristicColorClassify(image)).map((c) => ({
+        ...c,
+        source: 'model-inference-failed',
+      }));
     }
   }
 
@@ -115,8 +114,8 @@ export class OnnxFoodClassifier implements FoodClassifier {
     } else if (typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement) {
       ctx.drawImage(image, 0, 0, 224, 224);
     } else if (image instanceof Blob) {
-      const bitmap = await createImageBitmap(image);
-      ctx.drawImage(bitmap, 0, 0, 224, 224);
+      const decoded = await decodeImage(image);
+      ctx.drawImage(decoded.source, 0, 0, 224, 224);
     }
 
     const imgData = ctx.getImageData(0, 0, 224, 224);
@@ -154,9 +153,9 @@ export class OnnxFoodClassifier implements FoodClassifier {
         if (ctx) {
           if (typeof HTMLImageElement !== 'undefined' && image instanceof HTMLImageElement) {
             ctx.drawImage(image, 0, 0, 32, 32);
-          } else if (image instanceof Blob && typeof createImageBitmap !== 'undefined') {
-            const bitmap = await createImageBitmap(image);
-            ctx.drawImage(bitmap, 0, 0, 32, 32);
+          } else if (image instanceof Blob) {
+            const decoded = await decodeImage(image);
+            ctx.drawImage(decoded.source, 0, 0, 32, 32);
           }
           const { data } = ctx.getImageData(0, 0, 32, 32);
           let totalR = 0, totalG = 0, totalB = 0;

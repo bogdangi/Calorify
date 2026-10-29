@@ -13,6 +13,8 @@ export interface FoodClassification {
   foodId: string;
   confidence: number;
   rawLabel?: string;
+  /** Which head produced this candidate: 'food101' | 'imagenet' | 'heuristic' */
+  source?: string;
 }
 
 export interface DetectedFood {
@@ -38,11 +40,14 @@ export interface FoodAnalysis {
   modelId: string;
   modelVersion: string;
   inferenceTimeMs: number;
+  /** Head that produced the primary prediction (see FoodClassification.source) */
+  source?: string;
   topAlternatives?: Array<{
     foodId: string;
     foodName: string;
     confidence: number;
     calories: number;
+    source?: string;
   }>;
 }
 
